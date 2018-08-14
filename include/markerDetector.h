@@ -16,8 +16,11 @@ namespace markerDetector {
     
     struct EllipsesCluster {
         cv::Point2f center;
-        int rep; // the representative circle
-        std::vector<int> ellipsesIds;
+        Ellipse outer;
+        Ellipse inner;
+        float diffW;
+        float diffH;
+        float distance;
     };
 
     /**
@@ -49,8 +52,13 @@ namespace markerDetector {
         std::vector<Target> detectAndMeasure(const cv::Mat &image, cv::Mat &debug) ;
         void detectEdges(const cv::Mat& raw, cv::Mat& edges);
         void detectContours(const cv::Mat &edges, std::vector<std::vector<cv::Point>> &ctrs);
-        void filterEllipses(const std::vector<Ellipse> &ellipses, std::vector<Ellipse> &filteredEllipses);
-        std::vector<EllipsesCluster> clusterEllipses(const std::vector<Ellipse> &ellipses, cv::Mat &debug);
+        void contoursToEllipses(const std::vector<Contour> &contours, std::vector<Ellipse> &ellipses);
+        void filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters);
+        std::vector<EllipsesCluster> clusterEllipses(const std::vector<Ellipse> &ellipses);
+
+        //Debug
+        void debugClusters(const std::vector<EllipsesCluster> &clusters, cv::Mat &debug);
+        void debugContours(const std::vector<Contour> &contours, cv::Mat &debug);
 
         MarkerDetector(const MarkerDetectorConfig &cfg) :
             _cfg(cfg) {

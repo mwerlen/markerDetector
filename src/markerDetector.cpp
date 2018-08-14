@@ -17,40 +17,40 @@ namespace markerDetector {
     std::vector<Target> MarkerDetector::detectAndMeasure(const cv::Mat &image, cv::Mat &debug) {
 
         std::vector<Target> targets;
-        
+       
+        // Detect edges
         cv::Mat edges;
         detectEdges(image, edges);
 
+        // transform to contours
         vector<vector<Point>> contours;
         detectContours(edges, contours);
 
-        // Find the rotated rectangles and ellipses for each contour
-        vector<RotatedRect> minRect (contours.size());
+        // Some debugging
+        debugContours(contours, debug);
+        
+        // Convert contours to ellipses
         vector<Ellipse> ellipses;
-        vector<Ellipse> filteredEllipses;
-
-        for( int i = 0; i < contours.size(); i++ ) {
-            minRect[i] = minAreaRect(Mat(contours[i]));
-            if(contours[i].size() > _cfg.contourFilterMinSize) { 
-                ellipses.resize(ellipses.size() + 1);
-                ellipses.back() = fitEllipse( Mat(contours[i]) );
-                drawContours(debug, contours, i, Scalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point() );
-            }
-        }
+        contoursToEllipses(contours, ellipses);
+        cout << ellipses.size() << " ellipses found" << endl;
         
-        filterEllipses(ellipses, filteredEllipses);
+        // Clustering ellipses
+        std::vector<EllipsesCluster> unfilteredClusters;
+        unfilteredClusters = clusterEllipses(ellipses);
         
-        cout << filteredEllipses.size() << " ellipses found" << endl;
-        
+        // Filtering clusters to deduplicate
         std::vector<EllipsesCluster> clusters;
-        clusters = clusterEllipses(filteredEllipses, debug);
+        filterClusters(unfilteredClusters, clusters);
 
-        cout << "Nombre de clusters : " << clusters.size() << endl;
+        cout << "Nombre de clusters (dédupliqués) : " << clusters.size() << endl;
 
         for (int i = 0; i < clusters.size(); ++i) {
             cout << i << " - " << clusters[i].center.x;
             cout << " - " << clusters[i].center.y << endl;
         }
+        
+        // Printing clusters for debug
+        debugClusters(clusters, debug);
 
         return targets;
     }
@@ -94,30 +94,50 @@ namespace markerDetector {
       ctrs.clear();
       findContours(edges, ctrs, CV_RETR_LIST, CV_CHAIN_APPROX_NONE, Point(0, 0));
     }
-    
+   
+    /*
+     *  Filtering contours by minimum size and returning Ellipses
+     *
+     */
+    void MarkerDetector::contoursToEllipses(const std::vector<Contour> &contours, std::vector<Ellipse> &ellipses) {
+        for( int i = 0; i < contours.size(); i++ ) {
+            if(contours[i].size() > _cfg.contourFilterMinSize) { 
+                ellipses.resize(ellipses.size() + 1);
+                ellipses.back() = fitEllipse( Mat(contours[i]) );
+            }
+        }
+    }
     /*
      * This method associate concentric circles into clusters
      * Best match is computed by center proximity and circle radius ratio (as declared in config)
      *
      */
-    void MarkerDetector::filterEllipses(const std::vector<Ellipse> &ellipses, std::vector<Ellipse> &filteredEllipses) {
-        for (int i = 0; i < ellipses.size(); ++i) {
-            bool alreadyExists = false;
+    void MarkerDetector::filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters) {
+        for (int i = 0; i < clusters.size(); ++i) {
+            bool bestMatch = true;
+            Ellipse iEllipse = clusters[i].outer;
         
-            for (int j = 0; j < filteredEllipses.size(); ++j) {
-                // Testing if ellipse[i] is looking like filteredEllipses[j]
-                if ( fabs(ellipses[i].size.height - filteredEllipses[j].size.height) < (ellipses[i].size.height * _cfg.ellipseFilterCloseness)
-                    && fabs(ellipses[i].size.width - filteredEllipses[j].size.width)  < (ellipses[i].size.width * _cfg.ellipseFilterCloseness)
-                    && norm(ellipses[i].center - filteredEllipses[j].center) < ellipses[i].size.width * _cfg.ellipseFilterCloseness) {
-                    alreadyExists = true;
+            for (int j = 0; j < clusters.size(); ++j) {
+                if ( i == j ) { 
+                    continue;
+                 }
+
+                Ellipse jEllipse = clusters[j].outer;
+                // Testing if cluters[i] is looking like clusters[j]
+                if (fabs(iEllipse.size.height - jEllipse.size.height) <= (iEllipse.size.height * _cfg.ellipseFilterCloseness)
+                    && fabs(iEllipse.size.width - jEllipse.size.width)  <= (iEllipse.size.width * _cfg.ellipseFilterCloseness)
+                    && norm(iEllipse.center - jEllipse.center) <= iEllipse.size.width * _cfg.ellipseFilterCloseness) {
                     
-                    // TODO MWE : keep best ellipse, not the first !
+                    // Testing for the better matching cluster
+                    if ((clusters[i].diffH + clusters[i].diffW + clusters[i].distance) >= (clusters[j].diffH + clusters[j].diffW + clusters[j].distance)) {
+                        bestMatch = false;
+                    }                   
                 }
             }
             
-            if(!alreadyExists) {
-                filteredEllipses.resize(filteredEllipses.size() + 1);
-                filteredEllipses.back() = ellipses[i];
+            if(bestMatch) {
+                filteredClusters.resize(filteredClusters.size() + 1);
+                filteredClusters.back() = clusters[i];
             }
         }
     }
@@ -128,7 +148,7 @@ namespace markerDetector {
      * Best match is computed by center proximity and circle radius ratio (as declared in config)
      *
      */
-    std::vector<EllipsesCluster> MarkerDetector::clusterEllipses(const std::vector<Ellipse> &ellipses, cv::Mat &debug) {
+    std::vector<EllipsesCluster> MarkerDetector::clusterEllipses(const std::vector<Ellipse> &ellipses) {
 
       std::vector<EllipsesCluster> clusters;
       // for each circle, do a cluster with the best matching inner circle, if found
@@ -158,14 +178,25 @@ namespace markerDetector {
         if (bestMatch != -1) {
           clusters.resize(clusters.size() + 1);
           clusters.back().center = ellipses[i].center;
-          clusters.back().rep = i;
-          clusters.back().ellipsesIds.push_back(i);
-          clusters.back().ellipsesIds.push_back(bestMatch);
-          
-          ellipse(debug, ellipses[i], Scalar(0,0,255), 4, 8 );
-          ellipse(debug, ellipses[bestMatch], Scalar(0,255,0), 4, 8 );
+          clusters.back().outer = ellipses[i];
+          clusters.back().inner = ellipses[bestMatch];
+          clusters.back().diffW = bestDiffW;
+          clusters.back().diffH = bestDiffH;
+          clusters.back().distance = norm(ellipses[i].center - ellipses[bestMatch].center);
         }
       }
       return clusters;
+    }
+
+
+    void MarkerDetector::debugClusters(const std::vector<EllipsesCluster> &clusters, cv::Mat &debug) {
+        for (int i = 0; i < clusters.size(); i++) {
+            ellipse(debug, clusters[i].inner, Scalar(0,0,255), 6, 8);
+            ellipse(debug, clusters[i].outer, Scalar(0,255,0), 6, 8);
+        }
+    }
+
+    void MarkerDetector::debugContours(const std::vector<Contour> &contours, cv::Mat &debug) {
+        drawContours(debug, contours, -1, Scalar(255,0,0), 2, 8, vector<Vec4i>(), 0, Point() );
     }
 }

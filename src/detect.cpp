@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     // Launch detection
     vector<Target> returnedValues = detector->detectAndMeasure(raw, debug);
 
-
+    // Writing debug image
     imwrite(debugImgName, debug);
   
     // Log
