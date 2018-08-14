@@ -1,0 +1,11 @@
+/target/*.aux
+/target/*.log
+/build
+.idea
+__pycache__
+target_*.aux
+target_*.log
+*.cbp
+output.log
+output.csv
+debug
