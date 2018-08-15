@@ -9,7 +9,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include <libconfig.h++>
 
-#include "markerDetector.h"
+#include "MarkerDetector.h"
 
 using namespace std;
 using namespace cv;
@@ -149,30 +149,21 @@ int main(int argc, char *argv[]) {
     Mat debug = raw.clone();
 
     // Launch detection
-    vector<Target> returnedValues = detector->detectAndMeasure(raw, debug);
+    vector<Target> targets;
+    detector->detectAndMeasure(raw, targets, debug);
 
     // Writing debug image
     imwrite(debugImgName, debug);
   
     // Log
-    for (auto targetIt = returnedValues.begin(); targetIt != returnedValues.end(); ++targetIt) {
+    for (auto targetIt = targets.begin(); targetIt != targets.end(); ++targetIt) {
       Target &target = *targetIt;
 
-      if (target.measured) {
         *output << filename.substr(0, filename.length() - 4) << ";";
-        *output << target.markerModel->id << ";";
+        *output << target.markerModelId << ";";
         *output << fixed << setprecision(6) << target.cx << ";";
         *output << fixed << setprecision(6) << target.cy << endl;
         output->flush();
-
-        cout << "Detected target " << target.markerModel->id << " at ";
-        cout << fixed << setprecision(6) << target.cx << ";";
-        cout << fixed << setprecision(6) << target.cy << " - ";
-        cout << fixed << setprecision(6) << target.outer.center.x << ";";
-        cout << fixed << setprecision(6) << target.outer.center.y << endl;
-      } else {
-        cout << "Unable to measure :(" << endl;
-      }
     }
   }
 

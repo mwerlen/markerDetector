@@ -1,4 +1,5 @@
-#include "markerDetector.h"
+#include "MarkerDetector.h"
+#include "SignalReader.h"
 
 #include <vector>
 
@@ -14,9 +15,7 @@ namespace markerDetector {
     /*
      * Detect targets and measure center
      */
-    std::vector<Target> MarkerDetector::detectAndMeasure(const cv::Mat &image, cv::Mat &debug) {
-
-        std::vector<Target> targets;
+    void MarkerDetector::detectAndMeasure(const cv::Mat &image, std::vector<Target> &targets, cv::Mat &debug) {
        
         // Detect edges
         cv::Mat edges;
@@ -44,15 +43,33 @@ namespace markerDetector {
 
         cout << "Nombre de clusters (dédupliqués) : " << clusters.size() << endl;
 
-        for (int i = 0; i < clusters.size(); ++i) {
-            cout << i << " - " << clusters[i].center.x;
-            cout << " - " << clusters[i].center.y << endl;
-        }
-        
-        // Printing clusters for debug
-        debugClusters(clusters, debug);
+        // Detect markers in clusters
+        SignalReader *reader = new SignalReader(_cfg);
 
-        return targets;
+        // Looping over clusters to identify targets
+        for (int i = 0; i < clusters.size(); ++i) {
+            EllipsesCluster cluster = clusters[i];
+
+            // Printing cluster for debug
+            debugCluster(cluster, debug);
+            
+            // Get Contour
+            Contour contour;
+            reader->getSignalContourInsideEllipse(cluster, contour);
+                        
+            // Printing cluster for debug
+            debugSignalContour(contour, debug);
+            
+            // Get Signal
+            vector<float> signal;
+            reader->getSignalFromContour(image, contour, signal);
+            
+            // Detect targets
+            reader->getCorrespondingTargets(image, cluster, signal, targets);
+        }
+
+        // Some debugging
+        debugTargets(targets, debug);
     }
 
 
@@ -189,14 +206,32 @@ namespace markerDetector {
     }
 
 
-    void MarkerDetector::debugClusters(const std::vector<EllipsesCluster> &clusters, cv::Mat &debug) {
-        for (int i = 0; i < clusters.size(); i++) {
-            ellipse(debug, clusters[i].inner, Scalar(0,0,255), 6, 8);
-            ellipse(debug, clusters[i].outer, Scalar(0,255,0), 6, 8);
-        }
+    void MarkerDetector::debugCluster(const EllipsesCluster &cluster, cv::Mat &debug) {
+        ellipse(debug, cluster.inner, Scalar(0,0,255), 6, 8);
+        ellipse(debug, cluster.outer, Scalar(0,255,0), 6, 8);
+        cout << "Cluster center at " << cluster.center.x;
+        cout << " ; " << cluster.center.y << endl;
     }
 
     void MarkerDetector::debugContours(const std::vector<Contour> &contours, cv::Mat &debug) {
         drawContours(debug, contours, -1, Scalar(255,0,0), 2, 8, vector<Vec4i>(), 0, Point() );
+    }
+
+    void MarkerDetector::debugTargets(const std::vector<Target> &targets, cv::Mat &debug) {
+        for (int i = 0; i < targets.size(); i++) {
+            Target target = targets[i];
+            cout << "Detected target " << target.markerModelId << " at ";
+            cout << fixed << setprecision(6) << target.cx << ";";
+            cout << fixed << setprecision(6) << target.cy;
+            cout << " with score " << target.correlationScore << endl;
+
+            circle(debug, Point(target.cx, target.cy), 1, Scalar(0,200,200), 3, 8);
+        }
+    }
+    
+    void MarkerDetector::debugSignalContour(const Contour &contour, cv::Mat &debug) {
+        std::vector<Contour> contours(1);
+        contours[0] = contour;
+        drawContours(debug, contours, 0, Scalar(200,200,0), 2, 8, vector<Vec4i>(), 0, Point() );
     }
 }

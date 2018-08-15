@@ -18,7 +18,7 @@ set(CMAKE_EXE_LINKER_FLAGS "-static")
 set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 # Visiona
-add_library(markerDetector STATIC  src/markerDetector.cpp src/MarkerDetectorConfig.cpp)
+add_library(markerDetector STATIC src/SignalReader.cpp src/MarkerDetector.cpp src/MarkerDetectorConfig.cpp)
 
 # config ++
 add_library(config++ STATIC IMPORTED)

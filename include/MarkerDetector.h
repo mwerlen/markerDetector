@@ -23,6 +23,7 @@ namespace markerDetector {
         float distance;
     };
 
+
     /**
      * A target
      * includes temporary and final results of the detect and measure process
@@ -30,18 +31,20 @@ namespace markerDetector {
 
     class Target {
       public:
-        // detect stage
-        bool detected; /**< if the target has been detected in the image **/
-        Ellipse inner, outer; /**< inner and outer circle circle approximations **/
-
-        // measure stage
-        bool measured; /**< if the accurate measurement step succeded **/
-
-        // temporary, should become a rotation and a translation
+        
+        // inner and outer target ellipse approximations
+        Ellipse inner, outer;
+        
+        // Center in image
         double cx, cy;
+        
+        // MarkerModel detected
+        int markerModelId;
 
-        MarkerModel* markerModel;
-        Target();
+        //Correlation score
+        float correlationScore;
+
+        Target(){};
     };
 
     class MarkerDetector {
@@ -49,7 +52,7 @@ namespace markerDetector {
         MarkerDetectorConfig _cfg;
 
       public:
-        std::vector<Target> detectAndMeasure(const cv::Mat &image, cv::Mat &debug) ;
+        void detectAndMeasure(const cv::Mat &image, std::vector<Target> &targets, cv::Mat &debug) ;
         void detectEdges(const cv::Mat& raw, cv::Mat& edges);
         void detectContours(const cv::Mat &edges, std::vector<std::vector<cv::Point>> &ctrs);
         void contoursToEllipses(const std::vector<Contour> &contours, std::vector<Ellipse> &ellipses);
@@ -57,8 +60,10 @@ namespace markerDetector {
         std::vector<EllipsesCluster> clusterEllipses(const std::vector<Ellipse> &ellipses);
 
         //Debug
-        void debugClusters(const std::vector<EllipsesCluster> &clusters, cv::Mat &debug);
+        void debugCluster(const EllipsesCluster &cluster, cv::Mat &debug);
         void debugContours(const std::vector<Contour> &contours, cv::Mat &debug);
+        void debugTargets(const std::vector<Target> &target, cv::Mat &debug);
+        void debugSignalContour(const Contour &contour, cv::Mat &debug);
 
         MarkerDetector(const MarkerDetectorConfig &cfg) :
             _cfg(cfg) {
