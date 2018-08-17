@@ -226,12 +226,24 @@ namespace markerDetector {
             cout << " with score " << target.correlationScore << endl;
 
             circle(debug, Point(target.cx, target.cy), 1, Scalar(0,200,200), 3, 8);
+            debug.at<Vec3b>(target.cy, target.cx) = 200,200,0;
+            putText(debug, std::to_string(target.markerModelId), Point(target.cx,target.cy), FONT_HERSHEY_SIMPLEX, 5, Scalar(200,200,0), 4, 8);
         }
     }
+    
     
     void MarkerDetector::debugSignalContour(const Contour &contour, cv::Mat &debug) {
         std::vector<Contour> contours(1);
         contours[0] = contour;
         drawContours(debug, contours, 0, Scalar(200,200,0), 2, 8, vector<Vec4i>(), 0, Point() );
     }
+    /*
+    // Pour debugger les X/Y
+    void MarkerDetector::debugSignalContour(const Contour &contour, cv::Mat &debug) {
+        for (int i = 0; i < contour.size(); ++i) {
+            Point2i px = contour[i];
+            debug.at<Vec3b>(px.y, px.x) = 200,200,0;
+        }
+    }
+    */
 }

@@ -23,6 +23,7 @@ namespace markerDetector {
         void getCorrespondingTargets(const cv::Mat& image, const EllipsesCluster &cluster, std::vector<float> &signal, std::vector<Target> &targets);
         void normalizeSignal(std::vector<float> &sig_in);
         void computeNormalizedxCorr(const std::vector<float> &sig_in, cv::Mat &out, MarkerModel* markerModel);
+        void dumpSignal(const std::string id, const std::vector<float> &signal);
 
         SignalReader(const MarkerDetectorConfig &cfg) :
             _cfg(cfg) {

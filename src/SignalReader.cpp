@@ -2,6 +2,8 @@
 #include "MarkerDetector.h"
 
 #include <libconfig.h++>
+#include <fstream>
+#include <iostream>
 #include <vector>
 
 #include <opencv2/highgui/highgui.hpp>
@@ -77,13 +79,15 @@ namespace markerDetector {
      *      See https://github.com/DavideACucci/visiona
      */
     void SignalReader::getSignalFromContour(const Mat& image, Contour &contour, std::vector<float> &signal) {
+        Mat image_gray;
+        cvtColor(image, image_gray, CV_BGR2GRAY);
 
         signal.clear();
         signal.reserve(contour.size());
 
         for (int i = 0; i < contour.size(); ++i) {
             Point2i px = contour[i];
-            Scalar intensity = image.at<uchar>(px.y, px.x);
+            Scalar intensity = image_gray.at<uchar>(px.y, px.x); // Sisi, c'est bien y puis x
             signal.push_back(intensity[0]);
         }
     }
@@ -105,7 +109,7 @@ namespace markerDetector {
         bool found = false;
 
         normalizeSignal(signal);
-       
+        dumpSignal("ref"+std::to_string(cluster.center.x), signal);
 
         for (int markerModelId = 0; markerModelId < _cfg.markerModels.size(); markerModelId++) {
             MarkerModel * markerModel = _cfg.markerModels[markerModelId];
@@ -116,7 +120,11 @@ namespace markerDetector {
             Point2i minLocation, maxLocation;
           
             minMaxLoc(correlationMatrix, &min, &max, &minLocation, &maxLocation);
-                       
+            
+            if(max > _cfg.markerxCorrThreshold) {
+                cout << "Matching with model " << markerModel->id << " - " << max << " -" << maxLocation.x << "/" << correlationMatrix.cols << endl;
+            }
+            
             if (max > maxCorrelation) {
                 maxCorrelation = max;
                 selectedMarkerModelId = markerModel->id;
@@ -166,7 +174,12 @@ namespace markerDetector {
 
         if (min != max) {
             for (unsigned int k = 0; k < sig_in.size(); k++) {
-                sig_in[k] = -1.0 + (sig_in[k] - min) * 2.0 / (max - min);
+                //sig_in[k] = -1.0 + (sig_in[k] - min) * 2.0 / (max - min);
+                if(sig_in[k]<0) {
+                    sig_in[k] = -1.0;
+                } else {
+                    sig_in[k] = 1.0;
+                }
             }
         }
     }
@@ -202,8 +215,19 @@ namespace markerDetector {
 
         Mat ref(1, 2 * sig_in.size(), CV_32FC1, raw);
         Mat sig(1, sig_in.size(), CV_32FC1, const_cast<float *>(sig_in.data()));
+        
+        dumpSignal("model_"+std::to_string(markerModel->id), std::vector<float>(raw,raw + sizeof raw / sizeof raw[0]));
 
         // compute cross correlation
-        matchTemplate(ref, sig, out, CV_TM_CCORR_NORMED);
+        matchTemplate(ref, sig, out, CV_TM_CCORR_NORMED); //CV_TM_CCORR_NORMED
+    }
+    
+    void SignalReader::dumpSignal(const std::string id, const std::vector<float> &signal) {
+        Mat debug(220,signal.size(),CV_8UC1,Scalar(255,255,255));
+        for (int i = 0; i < signal.size(); i++) {
+            int height = (signal[i]*100)+110;
+            debug.at<uchar>(Point(i,height)) = 0;
+        }
+        imwrite("debug/"+id+".jpg", debug);
     }
 }
