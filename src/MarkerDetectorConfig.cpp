@@ -92,9 +92,10 @@ bool MarkerDetectorConfig::loadConfig(const std::string &file) {
 
     targets.lookupValue("d", markerDiameter);
     targets.lookupValue("id", markerInnerDiameter);
+    targets.lookupValue("numberOfDots", numberOfDots);
+    targets.lookupValue("signalRadiusPercentage", markerSignalRadiusPercentage);
 
     fromSettingToMarkers(targets["targetModels"], markerModels);
-    targets.lookupValue("signalRadiusPercentage", markerSignalRadiusPercentage);
 
   } catch (SettingNotFoundException &e) {
     cerr << " * ERROR: \"" << e.getPath() << "\" not defined." << endl;

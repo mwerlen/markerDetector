@@ -59,13 +59,13 @@ namespace markerDetector {
 
         float contourFilterMinSize;
         float ellipseFilterCloseness;
+        float markerxCorrThreshold;
 
         float markerDiameter;
         float markerInnerDiameter;
-
+        int numberOfDots;
         float markerSignalRadiusPercentage;
 
-        float markerxCorrThreshold;
 
         std::vector<MarkerModel *> markerModels;
 

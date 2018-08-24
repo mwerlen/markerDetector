@@ -109,12 +109,17 @@ namespace markerDetector {
         bool found = false;
 
         normalizeSignal(signal);
-        dumpSignal("ref"+std::to_string(cluster.center.x), signal);
+        dumpSignal("signal-"+std::to_string(cluster.center.x), signal);
+        
+        vector<float> smoothedSignal;
+        smoothSignal(signal, smoothedSignal);
+        flattenSignal(smoothedSignal);
+        dumpSignal("signal-"+std::to_string(cluster.center.x)+"-smoothed", smoothedSignal);
 
         for (int markerModelId = 0; markerModelId < _cfg.markerModels.size(); markerModelId++) {
             MarkerModel * markerModel = _cfg.markerModels[markerModelId];
             Mat correlationMatrix;
-            computeNormalizedxCorr(signal, correlationMatrix, markerModel);
+            computeNormalizedxCorr(smoothedSignal, correlationMatrix, markerModel);
           
             double min, max;
             Point2i minLocation, maxLocation;
@@ -174,14 +179,60 @@ namespace markerDetector {
 
         if (min != max) {
             for (unsigned int k = 0; k < sig_in.size(); k++) {
-                //sig_in[k] = -1.0 + (sig_in[k] - min) * 2.0 / (max - min);
-                if(sig_in[k]<0) {
+                sig_in[k] = -1.0 + (sig_in[k] - min) * 2.0 / (max - min);
+                /*if(sig_in[k]<0) {
                     sig_in[k] = -1.0;
                 } else {
                     sig_in[k] = 1.0;
-                }
+                }*/
             }
         }
+    }
+
+    void SignalReader::flattenSignal(std::vector<float> &sig_in) {
+        
+        for (unsigned int k = 0; k < sig_in.size(); k++) {
+            if(sig_in[k]<0) {
+                sig_in[k] = -1.0;
+            } else {
+                sig_in[k] = 1.0;
+            }
+        }
+    }
+
+
+    void SignalReader::smoothSignal(std::vector<float> &sig_in, std::vector<float> &sig_out) {
+
+        // Smoothed signal preparation
+        sig_out.clear();
+        sig_out.resize(sig_in.size());
+
+        for (int i = 0; i < sig_in.size(); i++){
+            sig_out[i] = computeSmoothedValue(sig_in, i);
+        }
+
+        cout << "Smoothed signal with " << sig_out.size() << " points" << endl;
+    }
+
+
+    float SignalReader::computeSmoothedValue(std::vector<float> &signal, int id) {
+        
+        // Compute smoother size
+        int smootherSize = signal.size() / _cfg.numberOfDots / 8;
+
+        int min = floor(id - (smootherSize/2));
+        int max = ceil(id + (smootherSize/2));
+
+        float value = 0;
+        float totalCoeff = 0;
+        for (int i = min; i < max; i ++) {
+            int coeff = (smootherSize/2) - abs(id-i);
+            int index = (i + signal.size()) % signal.size();
+            value += signal[index] * coeff;
+            totalCoeff += coeff;
+        }
+
+        return value / totalCoeff;
     }
 
     /*
@@ -216,7 +267,7 @@ namespace markerDetector {
         Mat ref(1, 2 * sig_in.size(), CV_32FC1, raw);
         Mat sig(1, sig_in.size(), CV_32FC1, const_cast<float *>(sig_in.data()));
         
-        dumpSignal("model_"+std::to_string(markerModel->id), std::vector<float>(raw,raw + sizeof raw / sizeof raw[0]));
+        //dumpSignal("model_"+std::to_string(markerModel->id), std::vector<float>(raw,raw + sizeof raw / sizeof raw[0]));
 
         // compute cross correlation
         matchTemplate(ref, sig, out, CV_TM_CCORR_NORMED); //CV_TM_CCORR_NORMED
