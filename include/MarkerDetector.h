@@ -52,11 +52,11 @@ namespace markerDetector {
         MarkerDetectorConfig _cfg;
 
       public:
-        void detectAndMeasure(const cv::Mat &image, std::vector<Target> &targets, cv::Mat &debug) ;
+        void detectAndMeasure(const cv::Mat &image, std::vector<Target> &targets, cv::Mat &debug);
         void detectEdges(const cv::Mat& raw, cv::Mat& edges);
         void detectContours(const cv::Mat &edges, std::vector<std::vector<cv::Point>> &ctrs);
         void contoursToEllipses(const std::vector<Contour> &contours, std::vector<Ellipse> &ellipses);
-        void filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters);
+        void filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters, const cv::Mat &image);
         std::vector<EllipsesCluster> clusterEllipses(const std::vector<Ellipse> &ellipses);
 
         //Debug

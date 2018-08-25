@@ -2,6 +2,7 @@
 #include "SignalReader.h"
 
 #include <vector>
+#include <time.h>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -31,7 +32,10 @@ namespace markerDetector {
         // Convert contours to ellipses
         vector<Ellipse> ellipses;
         contoursToEllipses(contours, ellipses);
-        cout << ellipses.size() << " ellipses found" << endl;
+        
+        if (_cfg.debugEllipseCount) {
+            cout << ellipses.size() << " ellipses found" << endl;
+        }
         
         // Clustering ellipses
         std::vector<EllipsesCluster> unfilteredClusters;
@@ -39,9 +43,11 @@ namespace markerDetector {
         
         // Filtering clusters to deduplicate
         std::vector<EllipsesCluster> clusters;
-        filterClusters(unfilteredClusters, clusters);
+        filterClusters(unfilteredClusters, clusters, image);
 
-        cout << "Nombre de clusters (dédupliqués) : " << clusters.size() << endl;
+        if (_cfg.debugClusterCount) {
+            cout << "Nombre de clusters (dédupliqués) : " << clusters.size() << endl;
+        }
 
         // Detect markers in clusters
         SignalReader *reader = new SignalReader(_cfg);
@@ -55,7 +61,7 @@ namespace markerDetector {
             
             // Get Contour
             Contour contour;
-            reader->getSignalContourInsideEllipse(cluster, contour);
+            reader->getSignalContourInsideEllipse(cluster.inner, contour, _cfg.markerSignalRadiusPercentage);
                         
             // Printing cluster for debug
             debugSignalContour(contour, debug);
@@ -129,7 +135,7 @@ namespace markerDetector {
      * Best match is computed by center proximity and circle radius ratio (as declared in config)
      *
      */
-    void MarkerDetector::filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters) {
+    void MarkerDetector::filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters, const cv::Mat &image) {
         for (int i = 0; i < clusters.size(); ++i) {
             bool bestMatch = true;
             Ellipse iEllipse = clusters[i].outer;
@@ -143,7 +149,7 @@ namespace markerDetector {
                 // Testing if cluters[i] is looking like clusters[j]
                 if (fabs(iEllipse.size.height - jEllipse.size.height) <= (iEllipse.size.height * _cfg.ellipseFilterCloseness)
                     && fabs(iEllipse.size.width - jEllipse.size.width)  <= (iEllipse.size.width * _cfg.ellipseFilterCloseness)
-                    && norm(iEllipse.center - jEllipse.center) <= iEllipse.size.width * _cfg.ellipseFilterCloseness) {
+                    && norm(iEllipse.center - jEllipse.center) <= iEllipse.size.width) {
                     
                     // Testing for the better matching cluster
                     if ((clusters[i].diffH + clusters[i].diffW + clusters[i].distance) >= (clusters[j].diffH + clusters[j].diffW + clusters[j].distance)) {
@@ -153,8 +159,11 @@ namespace markerDetector {
             }
             
             if(bestMatch) {
-                filteredClusters.resize(filteredClusters.size() + 1);
-                filteredClusters.back() = clusters[i];
+                if ((_cfg.disableCheckOnBigEllipses && iEllipse.size.height > 300)
+                    || SignalReader(_cfg).checkCluster(image, clusters[i])) {
+                    filteredClusters.resize(filteredClusters.size() + 1);
+                    filteredClusters.back() = clusters[i];
+                }
             }
         }
     }
@@ -206,13 +215,19 @@ namespace markerDetector {
     }
 
 
+
     void MarkerDetector::debugCluster(const EllipsesCluster &cluster, cv::Mat &debug) {
-        ellipse(debug, cluster.inner, Scalar(0,0,255), 6, 8);
-        circle(debug, Point(cluster.inner.center.x, cluster.inner.center.y), 1, Scalar(0,0,255), 6, 8);
-        ellipse(debug, cluster.outer, Scalar(0,255,0), 6, 8);
-        circle(debug, Point(cluster.outer.center.x, cluster.outer.center.y), 1, Scalar(0,255,0), 6, 8);
-        cout << "Cluster center at " << cluster.center.x;
-        cout << " ; " << cluster.center.y << endl;
+        if (_cfg.debugClusterEllipses) {
+            ellipse(debug, cluster.inner, Scalar(0,0,255), 6, 8);
+            circle(debug, Point(cluster.inner.center.x, cluster.inner.center.y), 1, Scalar(0,0,255), 6, 8);
+            ellipse(debug, cluster.outer, Scalar(0,255,0), 6, 8);
+            circle(debug, Point(cluster.outer.center.x, cluster.outer.center.y), 1, Scalar(0,255,0), 6, 8);
+        }
+        if (_cfg.debugClusterCenter) {
+            cout << "---" << endl;
+            cout << "Cluster center at " << cluster.center.x;
+            cout << " ; " << cluster.center.y << endl;
+        }
     }
 
     void MarkerDetector::debugContours(const std::vector<Contour> &contours, cv::Mat &debug) {
@@ -234,9 +249,11 @@ namespace markerDetector {
     
     
     void MarkerDetector::debugSignalContour(const Contour &contour, cv::Mat &debug) {
-        std::vector<Contour> contours(1);
-        contours[0] = contour;
-        drawContours(debug, contours, 0, Scalar(200,200,0), 2, 8, vector<Vec4i>(), 0, Point() );
+        if (_cfg.debugSignalContour) {
+            std::vector<Contour> contours(1);
+            contours[0] = contour;
+            drawContours(debug, contours, 0, Scalar(200,200,0), 2, 8, vector<Vec4i>(), 0, Point() );
+        }
     }
     /*
     // Pour debugger les X/Y

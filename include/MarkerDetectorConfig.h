@@ -53,19 +53,30 @@ namespace markerDetector {
 
     struct MarkerDetectorConfig {
 
+        //Debug
+        bool debugEllipseCount = false;
+        bool debugClusterCount = false;
+        bool debugClusterCenter = false;
+        bool debugSignalContour = false;
+        bool debugClusterEllipses = false;
+        bool writeImage = false;
+        bool writeSignal = false;
+
+        // Detection
         int CannyBlurKernelSize;
         int CannyLowerThreshold;
         int CannyHigherThreshold;
-
         float contourFilterMinSize;
         float ellipseFilterCloseness;
         float markerxCorrThreshold;
+        bool disableCheckOnBigEllipses;
 
+        // Targets
         float markerDiameter;
         float markerInnerDiameter;
         int numberOfDots;
         float markerSignalRadiusPercentage;
-
+        float sheetRadiusPercentage;
 
         std::vector<MarkerModel *> markerModels;
 

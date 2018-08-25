@@ -79,6 +79,14 @@ bool MarkerDetectorConfig::loadConfig(const std::string &file) {
   const Setting &root = cf.getRoot();
 
   try {
+    Setting &debug = root["debug"];
+    debug.lookupValue("ellipseCount", debugEllipseCount);
+    debug.lookupValue("clusterCount", debugClusterCount);
+    debug.lookupValue("clusterCenter", debugClusterCenter);
+    debug.lookupValue("signalContour", debugSignalContour);
+    debug.lookupValue("clusterEllipses", debugClusterEllipses);
+    debug.lookupValue("writeImage", writeImage);
+    debug.lookupValue("writeSignal", writeSignal);
   
     Setting &detection = root["detection"];
     detection.lookupValue("CannyBlurKernelSize", CannyBlurKernelSize);
@@ -87,6 +95,7 @@ bool MarkerDetectorConfig::loadConfig(const std::string &file) {
     detection.lookupValue("contourFilterMinSize", contourFilterMinSize);
     detection.lookupValue("ellipseFilterCloseness", ellipseFilterCloseness);
     detection.lookupValue("markerxCorrThreshold", markerxCorrThreshold);
+    detection.lookupValue("disableCheckOnBigEllipses", disableCheckOnBigEllipses);
     
     Setting &targets = root["targets"];
 
@@ -94,6 +103,8 @@ bool MarkerDetectorConfig::loadConfig(const std::string &file) {
     targets.lookupValue("id", markerInnerDiameter);
     targets.lookupValue("numberOfDots", numberOfDots);
     targets.lookupValue("signalRadiusPercentage", markerSignalRadiusPercentage);
+    targets.lookupValue("sheetRadiusPercentage", sheetRadiusPercentage);
+    
 
     fromSettingToMarkers(targets["targetModels"], markerModels);
 

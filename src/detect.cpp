@@ -154,7 +154,9 @@ int main(int argc, char *argv[]) {
     detector->detectAndMeasure(raw, targets, debug);
 
     // Writing debug image
-    imwrite(debugImgName, debug);
+    if (cfg.writeImage) {
+        imwrite(debugImgName, debug);
+    }
   
     // Log
     for (auto targetIt = targets.begin(); targetIt != targets.end(); ++targetIt) {

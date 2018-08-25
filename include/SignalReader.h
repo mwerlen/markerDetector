@@ -15,9 +15,10 @@ namespace markerDetector {
             MarkerDetectorConfig _cfg;
 
         public:
-        void getSignalContourInsideEllipse(const EllipsesCluster& cluster, Contour &contour);
-        cv::Point2f evalEllipse(float angle, const Ellipse& ellipse);
-        
+        void getSignalContourInsideEllipse(const Ellipse &ellipse, Contour &contour, float signalRadiusPercentage);
+        cv::Point2f evalEllipse(float angle, const Ellipse &ellipse, float signalRadiusPercentage);
+        bool checkCluster(const cv::Mat &image, const EllipsesCluster cluster);
+
         void getSignalFromContour(const cv::Mat& image, Contour &contour, std::vector<float> &signal);
         
         void getCorrespondingTargets(const cv::Mat& image, const EllipsesCluster &cluster, std::vector<float> &signal, std::vector<Target> &targets);
@@ -28,7 +29,7 @@ namespace markerDetector {
         void computeCenters(std::vector<float> &signal, std::vector<float> &centersOfDots);
         float computeOffset(int signalSize, std::vector<float> &centersOfDots);
         void getCode(int signalSize, std::vector<float> centers, float offset, bool code[]); 
-
+        bool checkForBlackParts(std::vector<float> &signal, float offset);
         void computeNormalizedxCorr(const std::vector<float> &sig_in, cv::Mat &out, MarkerModel* markerModel);
         
         void dumpSignal(const std::vector<float> &signal, cv::Mat &debug, cv::Vec3b color);

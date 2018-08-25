@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -23,15 +24,13 @@ namespace markerDetector {
      *      Author: Davide A. Cucci (davide.cucci@epfl.ch)
      *      See https://github.com/DavideACucci/visiona
      */
-    void SignalReader::getSignalContourInsideEllipse(const EllipsesCluster& cluster, Contour &contour) {
-
-        const Ellipse &ellipse = cluster.inner;
-        
+    void SignalReader::getSignalContourInsideEllipse(const Ellipse &ellipse, Contour &contour, float signalRadiusPercentage) {
+     
         // Computing ellipse perimeter in pixels - perimeter = PI * sqrt(2*(a²+b²))
         int N = ceil(
                     sqrt(2 * (
-                        pow(ellipse.size.width  * _cfg.markerSignalRadiusPercentage, 2.0)
-                        + pow(ellipse.size.height * _cfg.markerSignalRadiusPercentage, 2.0)
+                        pow(ellipse.size.width  * signalRadiusPercentage, 2.0)
+                        + pow(ellipse.size.height * signalRadiusPercentage, 2.0)
                         )
                     ) / 2
                 );
@@ -43,7 +42,7 @@ namespace markerDetector {
         float theta = 0.0;
 
         for (int i = 0; i < N; ++i, theta += increment) {
-            Point2f px = evalEllipse(theta, ellipse);
+            Point2f px = evalEllipse(theta, ellipse, signalRadiusPercentage);
             contour.push_back(px);
         }
     }
@@ -56,10 +55,10 @@ namespace markerDetector {
      *      Author: Davide A. Cucci (davide.cucci@epfl.ch)
      *      See https://github.com/DavideACucci/visiona
      */
-    Point2f SignalReader::evalEllipse(float angle, const Ellipse &ellipse) {
+    Point2f SignalReader::evalEllipse(float angle, const Ellipse &ellipse, float signalRadiusPercentage) {
         const Point2f& center = ellipse.center;
-        float a = ellipse.size.width * _cfg.markerSignalRadiusPercentage / 2.0;
-        float b = ellipse.size.height * _cfg.markerSignalRadiusPercentage / 2.0;
+        float a = ellipse.size.width * signalRadiusPercentage / 2.0;
+        float b = ellipse.size.height * signalRadiusPercentage / 2.0;
         float phi = ellipse.angle * M_PI / 180.0;
 
         float offset = 0.0;
@@ -76,6 +75,81 @@ namespace markerDetector {
         return ret;
     }
 
+    bool SignalReader::checkCluster(const cv::Mat &image, const EllipsesCluster cluster) {
+       
+        bool result = true;
+
+        // Convert image to gray
+        Mat image_gray;
+        cvtColor(image, image_gray, CV_BGR2GRAY);
+
+        // Inner white zone
+        vector<Point> innerContour;
+        getSignalContourInsideEllipse(cluster.inner, innerContour, 1.0);
+
+        // Outer black zone
+        vector<Point> outerContour;
+        getSignalContourInsideEllipse(cluster.outer, outerContour, 1.0);
+
+        // Sheet zone outside target
+        vector<Point> fullOuterContour;
+        getSignalContourInsideEllipse(cluster.outer, fullOuterContour, _cfg.sheetRadiusPercentage);
+        
+        // Area around cluster
+        Rect area = cluster.outer.boundingRect();
+
+        float sheetTotalValue = 0;
+        int sheetValues = 0;
+        float outerTotalValue = 0;
+        int outerValues = 0;
+        float innerTotalValue = 0;
+        int innerValues = 0;
+
+        // Let's check every pixel in this area
+        for(int y = area.y; y < area.y + area.height; y++) {
+            for(int x = area.x; x < area.x + area.width; x++) {
+                Point p(x,y);
+                int val = image_gray.at<uchar>(y,x);
+                bool insideSheet = pointPolygonTest(fullOuterContour,p,false) >= 0;
+                bool insideOuter = pointPolygonTest(outerContour,p,false) >= 0;
+                bool insideInner = pointPolygonTest(innerContour,p,false) >= 0;
+
+                if (insideInner) {
+                    innerTotalValue += val;
+                    innerValues += 1;
+                } else if (insideOuter) {
+                    outerTotalValue += val;
+                    outerValues += 1;
+                } else if (insideSheet) {
+                    sheetTotalValue += val;
+                    sheetValues += 1;
+                }
+            }
+        }
+
+        // Compute mean
+        float allMean = (innerTotalValue + outerTotalValue + sheetTotalValue) / (innerValues + outerValues + sheetValues);
+        float sheetMean = sheetTotalValue / sheetValues;
+        float outerMean = outerTotalValue / outerValues;
+        float innerMean = innerTotalValue / innerValues;
+        
+        // Test that sheet is whiter than mean pixel
+        if (sheetMean < allMean) {
+            result = false;
+        }
+
+        // Test that outer ring is darker than mean pixel
+        if (outerMean > allMean) {
+            result = false;
+        }
+
+        // Test that inner disk is whiter than mean pixel
+        if (innerMean < allMean) {
+            result = false;
+        }
+        
+        return result;
+    }
 
     /*
      * Get signal along an ellipse (given ellipse)
@@ -109,8 +183,6 @@ namespace markerDetector {
      */
     void SignalReader::getCorrespondingTargets(const Mat& image, const EllipsesCluster &cluster, std::vector<float> &signal, std::vector<Target> &targets) {
 
-        Mat debug(220,signal.size(),CV_8UC3,Scalar(255,255,255));
-        
         float maxCorrelation = _cfg.markerxCorrThreshold;
 
         int selectedMarkerModelId;
@@ -131,12 +203,20 @@ namespace markerDetector {
         float offset;
         offset = computeOffset(signal.size(), centers);
     
+        if (isnan(offset)) {
+            //cout << "Not a valid signal" << endl;
+            return;
+        }
+
         // Some debugs
-        dumpCenters(centers, debug, Scalar(0,255,255));
-        dumpOffset(offset, debug, Scalar(0,0,255));
-        dumpSignal(smoothedSignal, debug, Vec3b(0,255,0));
-        dumpSignal(signal, debug, Vec3b(255,0,0));
-        imwrite("debug/signal-"+std::to_string(cluster.center.x)+".jpg", debug);
+        if (_cfg.writeSignal) {
+            Mat debug(220,signal.size(),CV_8UC3,Scalar(255,255,255));
+            dumpCenters(centers, debug, Scalar(0,255,255));
+            dumpOffset(offset, debug, Scalar(0,0,255));
+            dumpSignal(smoothedSignal, debug, Vec3b(0,255,0));
+            dumpSignal(signal, debug, Vec3b(255,0,0));
+            imwrite("debug/signal-"+std::to_string(cluster.center.x)+".jpg", debug);
+        }
 
         // Compute code
         bool code[_cfg.numberOfDots];
@@ -144,7 +224,12 @@ namespace markerDetector {
         dumpCode(code);
 
         // Check black dots are really black !
-        // TODO
+        bool ok = checkForBlackParts(signal, offset);
+        
+        if (!ok) {
+            cout << "Ho, it looks wrong !" << endl;
+            return;
+        }
 
         for (int markerModelId = 0; markerModelId < _cfg.markerModels.size(); markerModelId++) {
             MarkerModel * markerModel = _cfg.markerModels[markerModelId];
@@ -155,10 +240,6 @@ namespace markerDetector {
             Point2i minLocation, maxLocation;
           
             minMaxLoc(correlationMatrix, &min, &max, &minLocation, &maxLocation);
-            
-            if(max > _cfg.markerxCorrThreshold) {
-                cout << "Matching with model " << markerModel->id << " - " << max << " -" << maxLocation.x << "/" << correlationMatrix.cols << endl;
-            }
             
             if (max > maxCorrelation) {
                 maxCorrelation = max;
@@ -240,8 +321,6 @@ namespace markerDetector {
         for (int i = 0; i < sig_in.size(); i++){
             sig_out[i] = computeSmoothedValue(sig_in, i);
         }
-
-        cout << "Smoothed signal with " << sig_out.size() << " points" << endl;
     }
 
 
@@ -278,15 +357,15 @@ namespace markerDetector {
         float curVal;
         int end = signal.size();
         if (signal[0] > 0) {
-            end = signal.size() * ( 1 + ( 1 / _cfg.numberOfDots));
+            end = ceil(signal.size() * ( 1.00 + ( 1.00 / _cfg.numberOfDots)));
         }
-        for (int i = 0; i < end; i++) {
+        for (int i = 0; i <= end; i++) {
             curVal = signal[i % signal.size()];
             if (lastVal == curVal) {
                 continue;
             } else if (lastVal < 0 && curVal > 0) {
                 startOfDot = i;
-            } else if (lastVal > 0 && curVal < 0) {
+            } else if (lastVal > 0 && curVal < 0 && startOfDot != -1) {
                 endOfDot = i;
             }
 
@@ -313,10 +392,10 @@ namespace markerDetector {
     float SignalReader::computeOffset(int signalSize, std::vector<float> &centersOfDots) {
         
         if (centersOfDots.size() == 0) {
-            return -1;
+            return NAN;
         } 
         float total = 0;
-        float modulo = signalSize / _cfg.numberOfDots;
+        float modulo = float(signalSize) / float(_cfg.numberOfDots);
         for (int i = 0; i < centersOfDots.size(); i++) {
             total += fmod(centersOfDots[i],modulo);
         }
@@ -336,6 +415,18 @@ namespace markerDetector {
        }
     }
 
+    bool SignalReader::checkForBlackParts(std::vector<float> &signal, float offset) {
+        bool result = true;
+        for (int i = 0; i < _cfg.numberOfDots; i++) {
+            float modulo = float(signal.size()) / float(_cfg.numberOfDots);
+            int position = offset + (i + 0.5) * modulo;
+            float value = signal[position];
+            if (value > 0) {
+                result = false;
+            }
+        }
+        return result;
+    }
 
     /*
      * computeNormalizedxCorr compares reference signal with picture's target signal
