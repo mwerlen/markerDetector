@@ -109,18 +109,42 @@ namespace markerDetector {
      */
     void SignalReader::getCorrespondingTargets(const Mat& image, const EllipsesCluster &cluster, std::vector<float> &signal, std::vector<Target> &targets) {
 
+        Mat debug(220,signal.size(),CV_8UC3,Scalar(255,255,255));
+        
         float maxCorrelation = _cfg.markerxCorrThreshold;
 
         int selectedMarkerModelId;
         bool found = false;
 
         normalizeSignal(signal);
-        dumpSignal("signal-"+std::to_string(cluster.center.x), signal);
         
+        // Prepare signal
         vector<float> smoothedSignal;
         smoothSignal(signal, smoothedSignal);
         flattenSignal(smoothedSignal);
-        dumpSignal("signal-"+std::to_string(cluster.center.x)+"-smoothed", smoothedSignal);
+
+        // Detect dots centers
+        vector<float> centers;
+        computeCenters(smoothedSignal, centers);
+
+        // Compute offset
+        float offset;
+        offset = computeOffset(signal.size(), centers);
+    
+        // Some debugs
+        dumpCenters(centers, debug, Scalar(0,255,255));
+        dumpOffset(offset, debug, Scalar(0,0,255));
+        dumpSignal(smoothedSignal, debug, Vec3b(0,255,0));
+        dumpSignal(signal, debug, Vec3b(255,0,0));
+        imwrite("debug/signal-"+std::to_string(cluster.center.x)+".jpg", debug);
+
+        // Compute code
+        bool code[_cfg.numberOfDots];
+        getCode(signal.size(), centers, offset, code);
+        dumpCode(code);
+
+        // Check black dots are really black !
+        // TODO
 
         for (int markerModelId = 0; markerModelId < _cfg.markerModels.size(); markerModelId++) {
             MarkerModel * markerModel = _cfg.markerModels[markerModelId];
@@ -241,6 +265,78 @@ namespace markerDetector {
         return value / totalCoeff;
     }
 
+
+    /*
+     *  This method detects dots (white parts of signal) and computes center
+     *  Populate a vector of centers
+     */
+    void SignalReader::computeCenters(std::vector<float> &signal, std::vector<float> &centersOfDots) {
+        
+        int startOfDot = -1;
+        int endOfDot = -1;
+        float lastVal = signal[0];
+        float curVal;
+        int end = signal.size();
+        if (signal[0] > 0) {
+            end = signal.size() * ( 1 + ( 1 / _cfg.numberOfDots));
+        }
+        for (int i = 0; i < end; i++) {
+            curVal = signal[i % signal.size()];
+            if (lastVal == curVal) {
+                continue;
+            } else if (lastVal < 0 && curVal > 0) {
+                startOfDot = i;
+            } else if (lastVal > 0 && curVal < 0) {
+                endOfDot = i;
+            }
+
+            if (startOfDot != -1 && endOfDot != -1) {
+                float center;
+                if (startOfDot < endOfDot) {
+                   center = (startOfDot + endOfDot) / 2;
+                } else {
+                    center = (startOfDot + endOfDot + signal.size()) / 2;
+                }
+                centersOfDots.reserve(centersOfDots.size()+1);
+                centersOfDots.push_back(center);
+                startOfDot = -1;
+                endOfDot = -1;
+            }
+            lastVal = curVal;
+        }
+    }
+
+    /*
+     *  This method compute the best offset from a set of offset
+     *
+     */
+    float SignalReader::computeOffset(int signalSize, std::vector<float> &centersOfDots) {
+        
+        if (centersOfDots.size() == 0) {
+            return -1;
+        } 
+        float total = 0;
+        float modulo = signalSize / _cfg.numberOfDots;
+        for (int i = 0; i < centersOfDots.size(); i++) {
+            total += fmod(centersOfDots[i],modulo);
+        }
+        return total/centersOfDots.size();
+    }
+
+
+    void SignalReader::getCode(int signalSize, std::vector<float> centers, float offset, bool code[]) {
+       for (int i = 0; i < _cfg.numberOfDots; i++) {
+            int measure = offset + ((signalSize / _cfg.numberOfDots) * i);
+            code[i] = false;
+            for (int j = 0; j < centers.size(); j++) {
+                if (abs(measure - centers[j]) < ((signalSize / _cfg.numberOfDots) / 2 * _cfg.markerxCorrThreshold)) {
+                    code[i] = true;
+                }
+            }
+       }
+    }
+
+
     /*
      * computeNormalizedxCorr compares reference signal with picture's target signal
      * Give back out matrice with diff between ref and signal.
@@ -279,12 +375,35 @@ namespace markerDetector {
         matchTemplate(ref, sig, out, CV_TM_CCORR_NORMED); //CV_TM_CCORR_NORMED
     }
     
-    void SignalReader::dumpSignal(const std::string id, const std::vector<float> &signal) {
-        Mat debug(220,signal.size(),CV_8UC1,Scalar(255,255,255));
+    void SignalReader::dumpSignal(const std::vector<float> &signal, cv::Mat &debug, cv::Vec3b color) {
         for (int i = 0; i < signal.size(); i++) {
-            int height = (signal[i]*100)+110;
-            debug.at<uchar>(Point(i,height)) = 0;
+            int height = 110 - (signal[i]*100);
+            debug.at<Vec3b>(Point(i,height)) = color;
         }
-        imwrite("debug/"+id+".jpg", debug);
+    }
+
+    void SignalReader::dumpCenters(const std::vector<float> &centers, cv::Mat &debug, cv::Scalar color) {
+        for (int i = 0; i < centers.size(); i++) {
+            line(debug, Point(centers[i],0), Point(centers[i], debug.rows), color, 3);
+        }
+    }
+
+    void SignalReader::dumpOffset(const int offset, cv::Mat &debug, cv::Scalar color) {
+        for (int i = 0; i < _cfg.numberOfDots; i++) {
+            int y = ((debug.cols / _cfg.numberOfDots) * i) + offset;
+            line(debug, Point(y,0), Point(y, debug.rows), color);
+        }
+    }
+
+    void SignalReader::dumpCode(const bool code[]) {
+        cout << "Code : ";
+        for (int i = 0; i < _cfg.numberOfDots; i++) {
+            if(code[i]) {
+                cout << "0";
+            } else {
+                cout << "_";
+            }
+        }
+        cout << endl;
     }
 }
