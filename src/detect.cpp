@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
   cout << images.size() << " file(s) found." << endl;
 
   // --------------------- process every image ---------------------------------
+  std::sort(images.begin(), images.end());
   for (int i = 0; i < images.size(); i++) {
     string filename = images[i];
 
@@ -164,6 +165,9 @@ int main(int argc, char *argv[]) {
         *output << fixed << setprecision(6) << target.cx << ";";
         *output << fixed << setprecision(6) << target.cy << endl;
         output->flush();
+    }
+    if (targets.size() == 0) {
+        *output << filename.substr(0, filename.length() - 4) << "; no result" << endl;
     }
   }
 
