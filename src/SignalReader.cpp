@@ -25,10 +25,16 @@ namespace markerDetector {
      */
     void SignalReader::getSignalContourInsideEllipse(const EllipsesCluster& cluster, Contour &contour) {
 
-        const Ellipse &ellipse = cluster.outer;
+        const Ellipse &ellipse = cluster.inner;
         
         // Computing ellipse perimeter in pixels - perimeter = PI * sqrt(2*(a²+b²))
-        int N = ceil(sqrt(2 * (pow(ellipse.size.width, 2.0) + pow(ellipse.size.height, 2.0))) / 2);
+        int N = ceil(
+                    sqrt(2 * (
+                        pow(ellipse.size.width  * _cfg.markerSignalRadiusPercentage, 2.0)
+                        + pow(ellipse.size.height * _cfg.markerSignalRadiusPercentage, 2.0)
+                        )
+                    ) / 2
+                );
         float increment = 2 * M_PI / N;
 
         //Initializing signal
@@ -143,8 +149,8 @@ namespace markerDetector {
             targets.back().outer = cluster.outer;
             targets.back().inner = cluster.inner;
             targets.back().markerModelId = selectedMarkerModelId;
-            targets.back().cx = cluster.outer.center.x;
-            targets.back().cy = cluster.outer.center.y;
+            targets.back().cx = cluster.inner.center.x;
+            targets.back().cy = cluster.inner.center.y;
             targets.back().correlationScore = maxCorrelation;
         }
     }

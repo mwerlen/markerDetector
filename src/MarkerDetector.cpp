@@ -208,7 +208,9 @@ namespace markerDetector {
 
     void MarkerDetector::debugCluster(const EllipsesCluster &cluster, cv::Mat &debug) {
         ellipse(debug, cluster.inner, Scalar(0,0,255), 6, 8);
+        circle(debug, Point(cluster.inner.center.x, cluster.inner.center.y), 1, Scalar(0,0,255), 6, 8);
         ellipse(debug, cluster.outer, Scalar(0,255,0), 6, 8);
+        circle(debug, Point(cluster.outer.center.x, cluster.outer.center.y), 1, Scalar(0,255,0), 6, 8);
         cout << "Cluster center at " << cluster.center.x;
         cout << " ; " << cluster.center.y << endl;
     }
@@ -225,7 +227,6 @@ namespace markerDetector {
             cout << fixed << setprecision(6) << target.cy;
             cout << " with score " << target.correlationScore << endl;
 
-            circle(debug, Point(target.cx, target.cy), 1, Scalar(0,200,200), 3, 8);
             debug.at<Vec3b>(target.cy, target.cx) = 200,200,0;
             putText(debug, std::to_string(target.markerModelId), Point(target.cx,target.cy), FONT_HERSHEY_SIMPLEX, 5, Scalar(200,200,0), 4, 8);
         }
