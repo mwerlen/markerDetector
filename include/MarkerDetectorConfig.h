@@ -48,6 +48,7 @@ namespace markerDetector {
         int id;
         float signalStartsWith;
         std::vector<float> signalModel; // percentage of the flips
+        std::vector<bool> codeModel; // code
 
     };
 
@@ -92,14 +93,22 @@ namespace markerDetector {
           for (int i = 0; i < s.getLength(); i++) {
             libconfig::Setting &m = s[i];
             libconfig::Setting &signal = m["signal"];
+            libconfig::Setting &code = m["code"];
             
             MarkerModel *markerModel = new MarkerModel();
             m.lookupValue("id",markerModel->id);
             m.lookupValue("signalStartsWith",markerModel->signalStartsWith);
+
             markerModel->signalModel.resize(signal.getLength());
             for (int j = 0; j < signal.getLength(); j++) {
               markerModel->signalModel[j] = signal[j];
             }
+
+            markerModel->codeModel.resize(code.getLength());
+            for (int j = 0; j < code.getLength(); j++) {
+              markerModel->codeModel[j] = code[j];
+            }
+
             markerModels[i] = markerModel;
           }
         }

@@ -54,6 +54,9 @@ class Target:
         signal.sort()
         return "[" + ",".join(map("{0:1.5f}".format, signal)) + "]"
 
+    def getCode(self):
+        return "[" + ",".join(map(str,self.sequence)) + "]"
+
     def getConfig(self):
         config  = "        {\n"
         config += "            id = " + str(self.target_id) + ";\n"
@@ -62,6 +65,7 @@ class Target:
         else:
             config += "            signalStartsWith = -1.0;\n"
         config += "            signal = " + self.getSignal() + ";\n"
+        config += "            code = " + self.getCode() + ";\n"
         config += "        }"
         return config
 
