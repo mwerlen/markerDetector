@@ -186,8 +186,10 @@ namespace markerDetector {
 
         float maxCorrelation = _cfg.markerxCorrThreshold;
 
-        int selectedMarkerModelId;
-        bool found = false;
+        int selectedMarkerModelId = -1;
+        int selectedMarkerModelIdByCode = -1;
+        bool foundSignal = false;
+        bool foundCode = false;
 
         normalizeSignal(signal);
         
@@ -220,7 +222,7 @@ namespace markerDetector {
         }
 
         // Compute code
-        bool code[_cfg.numberOfDots];
+        vector<bool> code(_cfg.numberOfDots);
         getCode(signal.size(), centers, offset, code);
         dumpCode(code);
 
@@ -232,8 +234,11 @@ namespace markerDetector {
             return;
         }
 
+        
+        
         for (int markerModelId = 0; markerModelId < _cfg.markerModels.size(); markerModelId++) {
             MarkerModel * markerModel = _cfg.markerModels[markerModelId];
+            
             Mat correlationMatrix;
             computeNormalizedxCorr(smoothedSignal, correlationMatrix, markerModel);
           
@@ -245,11 +250,19 @@ namespace markerDetector {
             if (max > maxCorrelation) {
                 maxCorrelation = max;
                 selectedMarkerModelId = markerModel->id;
-                found = true;
+                foundSignal = true;                
+            }
+
+            if (testSimilarity(code,markerModel->codeModel)) {
+                selectedMarkerModelIdByCode = markerModel->id;
+                foundCode = true;
             }
         }
     
-        if (found) {
+        if (foundSignal || foundCode) {
+            if (selectedMarkerModelId!=selectedMarkerModelIdByCode) {
+                cout << "Code didn't found same result !" << endl;
+            }
             targets.reserve(targets.size() + 1);
             targets.push_back(Target());
             targets.back().outer = cluster.outer;
@@ -404,7 +417,7 @@ namespace markerDetector {
     }
 
 
-    void SignalReader::getCode(int signalSize, std::vector<float> centers, float offset, bool code[]) {
+    void SignalReader::getCode(int signalSize, std::vector<float> centers, float offset, std::vector<bool> &code) {
        for (int i = 0; i < _cfg.numberOfDots; i++) {
             int measure = offset + ((signalSize / _cfg.numberOfDots) * i);
             code[i] = false;
@@ -428,6 +441,27 @@ namespace markerDetector {
         }
         return result;
     }
+
+    bool SignalReader::testSimilarity(std::vector<bool> &code1, std::vector<bool> &code2) {
+        if (code1.size() != code2.size()) {
+            return false;
+        }
+        bool result;
+        for (int i = 0; i < code1.size(); i++) {
+            result = true;
+            for (int j = 0; j <code1.size(); j++) {
+                if (code1[j] != code2[(i+j)%code1.size()]) {
+                    result = false;
+                    break;
+                }
+            }          
+            if (result) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     /*
      * computeNormalizedxCorr compares reference signal with picture's target signal
@@ -487,7 +521,7 @@ namespace markerDetector {
         }
     }
 
-    void SignalReader::dumpCode(const bool code[]) {
+    void SignalReader::dumpCode(const std::vector<bool> &code) {
         cout << "Code : ";
         for (int i = 0; i < _cfg.numberOfDots; i++) {
             if(code[i]) {

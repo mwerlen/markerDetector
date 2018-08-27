@@ -29,14 +29,15 @@ namespace markerDetector {
         float computeSmoothedValue(std::vector<float> &signal, int id);
         void computeCenters(std::vector<float> &signal, std::vector<float> &centersOfDots);
         float computeOffset(int signalSize, std::vector<float> &centersOfDots);
-        void getCode(int signalSize, std::vector<float> centers, float offset, bool code[]); 
+        void getCode(int signalSize, std::vector<float> centers, float offset, std::vector<bool> &code); 
         bool checkForBlackParts(std::vector<float> &signal, float offset);
+        bool testSimilarity(std::vector<bool> &code1, std::vector<bool> &code2);
         void computeNormalizedxCorr(const std::vector<float> &sig_in, cv::Mat &out, MarkerModel* markerModel);
         
         void dumpSignal(const std::vector<float> &signal, cv::Mat &debug, cv::Vec3b color);
         void dumpCenters(const std::vector<float> &centers, cv::Mat &debug, cv::Scalar color);
         void dumpOffset(const int offset, cv::Mat &debug, cv::Scalar color);
-        void dumpCode(const bool code[]);
+        void dumpCode(const std::vector<bool> &code);
 
         SignalReader(const MarkerDetectorConfig &cfg) :
             _cfg(cfg) {
