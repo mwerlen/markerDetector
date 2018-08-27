@@ -7,7 +7,8 @@
 #include <opencv/cv.h>
 
 #include "MarkerDetectorConfig.h"
-#include "MarkerDetector.h"
+#include "Structures.h"
+#include "Target.h"
 
 namespace markerDetector {
     class SignalReader {

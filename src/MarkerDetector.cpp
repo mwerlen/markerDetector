@@ -49,8 +49,6 @@ namespace markerDetector {
             cout << "Nombre de clusters (dédupliqués) : " << clusters.size() << endl;
         }
 
-        // Detect markers in clusters
-        SignalReader *reader = new SignalReader(_cfg);
 
         // Looping over clusters to identify targets
         for (int i = 0; i < clusters.size(); ++i) {
@@ -61,17 +59,17 @@ namespace markerDetector {
             
             // Get Contour
             Contour contour;
-            reader->getSignalContourInsideEllipse(cluster.inner, contour, _cfg.markerSignalRadiusPercentage);
+            reader.getSignalContourInsideEllipse(cluster.inner, contour, _cfg.markerSignalRadiusPercentage);
                         
             // Printing cluster for debug
             debugSignalContour(contour, debug);
             
             // Get Signal
             vector<float> signal;
-            reader->getSignalFromContour(image, contour, signal);
+            reader.getSignalFromContour(image, contour, signal);
             
             // Detect targets
-            reader->getCorrespondingTargets(image, cluster, signal, targets);
+            reader.getCorrespondingTargets(image, cluster, signal, targets);
         }
 
         // Some debugging
@@ -160,7 +158,7 @@ namespace markerDetector {
             
             if(bestMatch) {
                 if ((_cfg.disableCheckOnBigEllipses && iEllipse.size.height > 300)
-                    || SignalReader(_cfg).checkCluster(image, clusters[i])) {
+                    || reader.checkCluster(image, clusters[i])) {
                     filteredClusters.resize(filteredClusters.size() + 1);
                     filteredClusters.back() = clusters[i];
                 }

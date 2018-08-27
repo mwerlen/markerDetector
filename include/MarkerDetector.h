@@ -7,49 +7,16 @@
 #include <opencv/cv.h>
 
 #include "MarkerDetectorConfig.h"
+#include "SignalReader.h"
+#include "Structures.h"
+#include "Target.h"
 
 namespace markerDetector {
-
-    typedef std::vector<cv::Point2i> Contour;
-    
-    typedef cv::RotatedRect Ellipse;
-    
-    struct EllipsesCluster {
-        cv::Point2f center;
-        Ellipse outer;
-        Ellipse inner;
-        float diffW;
-        float diffH;
-        float distance;
-    };
-
-
-    /**
-     * A target
-     * includes temporary and final results of the detect and measure process
-     */
-
-    class Target {
-      public:
-        
-        // inner and outer target ellipse approximations
-        Ellipse inner, outer;
-        
-        // Center in image
-        double cx, cy;
-        
-        // MarkerModel detected
-        int markerModelId;
-
-        //Correlation score
-        float correlationScore;
-
-        Target(){};
-    };
 
     class MarkerDetector {
       protected:
         MarkerDetectorConfig _cfg;
+        SignalReader reader;
 
       public:
         void detectAndMeasure(const cv::Mat &image, std::vector<Target> &targets, cv::Mat &debug);
@@ -66,10 +33,10 @@ namespace markerDetector {
         void debugSignalContour(const Contour &contour, cv::Mat &debug);
 
         MarkerDetector(const MarkerDetectorConfig &cfg) :
-            _cfg(cfg) {
+            _cfg(cfg),
+            reader(cfg) {
         }
     };
-
 }
 
 #endif /* MARKERDETECTOR_H_ */

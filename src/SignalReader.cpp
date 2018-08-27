@@ -1,5 +1,6 @@
 #include "SignalReader.h"
-#include "MarkerDetector.h"
+#include "Structures.h"
+#include "Target.h"
 
 #include <libconfig.h++>
 #include <fstream>
