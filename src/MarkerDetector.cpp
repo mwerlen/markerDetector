@@ -18,9 +18,14 @@ namespace markerDetector {
      */
     void MarkerDetector::detectAndMeasure(const cv::Mat &image, std::vector<Target> &targets, cv::Mat &debug) {
        
+        // On passe l'image en niveaux de gris
+        cv::Mat image_gray;
+        cvtColor(image, image_gray, CV_BGR2GRAY);
+        cv::Mat tmp;
+        
         // Detect edges
         cv::Mat edges;
-        detectEdges(image, edges);
+        detectEdges(image_gray, edges);
 
         // transform to contours
         vector<vector<Point>> contours;
@@ -43,7 +48,7 @@ namespace markerDetector {
         
         // Filtering clusters to deduplicate
         std::vector<EllipsesCluster> clusters;
-        filterClusters(unfilteredClusters, clusters, image);
+        filterClusters(unfilteredClusters, clusters, image_gray);
 
         if (_cfg.debugClusterCount) {
             cout << "Nombre de clusters (dédupliqués) : " << clusters.size() << endl;
@@ -66,7 +71,7 @@ namespace markerDetector {
             
             // Get Signal
             vector<float> signal;
-            reader.getSignalFromContour(image, contour, signal);
+            reader.getSignalFromContour(image_gray, contour, signal);
             
             // Detect targets
             reader.getCorrespondingTargets(image, cluster, signal, targets);
@@ -83,18 +88,15 @@ namespace markerDetector {
      *
      */
     void MarkerDetector::detectEdges(const cv::Mat& image, cv::Mat& edges) {
-        
-        // On passe l'image en niveaux de gris
-        Mat image_gray;
-        cvtColor(image, image_gray, CV_BGR2GRAY);
+       
         cv::Mat tmp;
 
         // with canny
         if (_cfg.CannyBlurKernelSize > 0) {
-            blur(image_gray, tmp, Size(_cfg.CannyBlurKernelSize, _cfg.CannyBlurKernelSize));
+            blur(image, tmp, Size(_cfg.CannyBlurKernelSize, _cfg.CannyBlurKernelSize));
             Canny(tmp, edges, _cfg.CannyLowerThreshold, _cfg.CannyHigherThreshold, 3, true);
         } else {
-            Canny(image_gray, edges, _cfg.CannyLowerThreshold, _cfg.CannyHigherThreshold, 3, true);
+            Canny(image, edges, _cfg.CannyLowerThreshold, _cfg.CannyHigherThreshold, 3, true);
         }
     }
     
@@ -134,6 +136,7 @@ namespace markerDetector {
      *
      */
     void MarkerDetector::filterClusters(const std::vector<EllipsesCluster> &clusters, std::vector<EllipsesCluster> &filteredClusters, const cv::Mat &image) {
+
         for (int i = 0; i < clusters.size(); ++i) {
             bool bestMatch = true;
             Ellipse iEllipse = clusters[i].outer;

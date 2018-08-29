@@ -80,10 +80,6 @@ namespace markerDetector {
        
         bool result = true;
 
-        // Convert image to gray
-        Mat image_gray;
-        cvtColor(image, image_gray, CV_BGR2GRAY);
-
         // Inner white zone
         vector<Point> innerContour;
         getSignalContourInsideEllipse(cluster.inner, innerContour, 1.0);
@@ -110,7 +106,7 @@ namespace markerDetector {
         for(int y = area.y; y < area.y + area.height; y++) {
             for(int x = area.x; x < area.x + area.width; x++) {
                 Point p(x,y);
-                int val = image_gray.at<uchar>(y,x);
+                int val = image.at<uchar>(y,x);
 
                 // Inside white center
                 if (pointPolygonTest(innerContour,p,false) >= 0) {
@@ -162,15 +158,13 @@ namespace markerDetector {
      *      See https://github.com/DavideACucci/visiona
      */
     void SignalReader::getSignalFromContour(const Mat& image, Contour &contour, std::vector<float> &signal) {
-        Mat image_gray;
-        cvtColor(image, image_gray, CV_BGR2GRAY);
 
         signal.clear();
         signal.reserve(contour.size());
 
         for (int i = 0; i < contour.size(); ++i) {
             Point2i px = contour[i];
-            Scalar intensity = image_gray.at<uchar>(px.y, px.x); // Sisi, c'est bien y puis x
+            Scalar intensity = image.at<uchar>(px.y, px.x); // Sisi, c'est bien y puis x
             signal.push_back(intensity[0]);
         }
     }
