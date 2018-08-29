@@ -436,7 +436,7 @@ namespace markerDetector {
         for (int i = 0; i < _cfg.numberOfDots; i++) {
             float modulo = float(signal.size()) / float(_cfg.numberOfDots);
             int position = offset + (i + 0.5) * modulo;
-            float value = signal[position];
+            float value = signal[position % signal.size()];
             if (value > 0) {
                 result = false;
             }
