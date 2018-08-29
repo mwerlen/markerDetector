@@ -111,17 +111,19 @@ namespace markerDetector {
             for(int x = area.x; x < area.x + area.width; x++) {
                 Point p(x,y);
                 int val = image_gray.at<uchar>(y,x);
-                bool insideSheet = pointPolygonTest(fullOuterContour,p,false) >= 0;
-                bool insideOuter = pointPolygonTest(outerContour,p,false) >= 0;
-                bool insideInner = pointPolygonTest(innerContour,p,false) >= 0;
 
-                if (insideInner) {
+                // Inside white center
+                if (pointPolygonTest(innerContour,p,false) >= 0) {
                     innerTotalValue += val;
                     innerValues += 1;
-                } else if (insideOuter) {
+                } 
+                // Inside black disk
+                else if (pointPolygonTest(outerContour,p,false) >= 0) {
                     outerTotalValue += val;
                     outerValues += 1;
-                } else if (insideSheet) {
+                }
+                // Inside white sheet
+                else if (pointPolygonTest(fullOuterContour,p,false) >= 0) {
                     sheetTotalValue += val;
                     sheetValues += 1;
                 }
