@@ -125,8 +125,11 @@ namespace markerDetector {
     void MarkerDetector::contoursToEllipses(const std::vector<Contour> &contours, std::vector<Ellipse> &ellipses) {
         for( int i = 0; i < contours.size(); i++ ) {
             if(contours[i].size() > _cfg.contourFilterMinSize) { 
-                ellipses.resize(ellipses.size() + 1);
-                ellipses.back() = fitEllipse( Mat(contours[i]) );
+                Ellipse ellipse = fitEllipse(Mat(contours[i]));
+                if ((ellipse.size.height <= 2 * ellipse.size.width) && (ellipse.size.width <= 2 * ellipse.size.height)) {
+                    ellipses.resize(ellipses.size() + 1);
+                    ellipses.back() = fitEllipse( Mat(contours[i]) );
+                }
             }
         }
     }
