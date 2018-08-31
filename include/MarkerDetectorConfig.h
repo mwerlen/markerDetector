@@ -69,6 +69,8 @@ namespace markerDetector {
         int CannyHigherThreshold;
         float contourFilterMinSize;
         float ellipseFilterCloseness;
+        float clusterRatioMaxError;
+        float clusterPixelMaxError;
         float markerxCorrThreshold;
         bool disableCheckOnBigEllipses;
 

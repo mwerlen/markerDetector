@@ -94,6 +94,8 @@ bool MarkerDetectorConfig::loadConfig(const std::string &file) {
     detection.lookupValue("CannyHigherThreshold", CannyHigherThreshold);
     detection.lookupValue("contourFilterMinSize", contourFilterMinSize);
     detection.lookupValue("ellipseFilterCloseness", ellipseFilterCloseness);
+    detection.lookupValue("clusterRatioMaxError", clusterRatioMaxError);
+    detection.lookupValue("clusterPixelMaxError", clusterPixelMaxError);
     detection.lookupValue("markerxCorrThreshold", markerxCorrThreshold);
     detection.lookupValue("disableCheckOnBigEllipses", disableCheckOnBigEllipses);
     

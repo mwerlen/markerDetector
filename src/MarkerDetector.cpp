@@ -187,13 +187,14 @@ namespace markerDetector {
       for (int i = 0; i < ellipses.size(); ++i) {
 
         int bestMatch = -1;
-        float bestDiffW = ellipses[i].size.width * 0.05; // 5% error max
-        float bestDiffH = ellipses[i].size.height * 0.05; // 5% error max
+        float bestDiffW = ellipses[i].size.width * _cfg.clusterRatioMaxError; // x% error max
+        float bestDiffH = ellipses[i].size.height * _cfg.clusterRatioMaxError; // x% error max
 
         for (int j = 0; j < ellipses.size(); ++j) {
-          if ( ellipses[i].size.height > ellipses[j].size.height
-            && ellipses[i].size.width > ellipses[j].size.width
-            && norm(ellipses[i].center - ellipses[j].center) < ellipses[i].size.width * 0.1) {
+          if ( ellipses[i].size.height > ellipses[j].size.height        // Ellipse i is higher than j
+            && ellipses[i].size.width > ellipses[j].size.width          // Ellipse i is wider than j
+            && norm(ellipses[i].center - ellipses[j].center) < max((ellipses[i].size.width + ellipses[i].size.height) * _cfg.clusterRatioMaxError,_cfg.clusterPixelMaxError) // centers are not too far
+            && norm(ellipses[i].center - ellipses[j].center) < min(ellipses[j].size.width, ellipses[j].size.height)) { // Center of i is inside j
             float curDiffH = fabs(ellipses[i].size.height * radiusRatio - ellipses[j].size.height);
             float curDiffW = fabs(ellipses[i].size.width * radiusRatio - ellipses[j].size.width);
 
