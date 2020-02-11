@@ -258,6 +258,10 @@ namespace markerDetector {
             std::vector<Contour> contours(1);
             contours[0] = contour;
             drawContours(debug, contours, 0, Scalar(200,200,0), 2, 8, vector<Vec4i>(), 0, Point() );
+
+            cout << "Signal length : ";
+            cout << fixed << setprecision(6) << contour.size();
+            cout << endl;
         }
     }
     /*

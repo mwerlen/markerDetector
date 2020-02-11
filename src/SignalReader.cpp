@@ -29,11 +29,12 @@ namespace markerDetector {
      
         // Computing ellipse perimeter in pixels - perimeter = PI * sqrt(2*(a²+b²))
         int N = ceil(
+                    M_PI *
                     sqrt(2 * (
                         pow(ellipse.size.width  * signalRadiusPercentage, 2.0)
                         + pow(ellipse.size.height * signalRadiusPercentage, 2.0)
                         )
-                    ) / 2
+                    ) 
                 );
         float increment = 2 * M_PI / N;
 
@@ -202,11 +203,6 @@ namespace markerDetector {
         float offset;
         offset = computeOffset(signal.size(), centers);
     
-        if (isnan(offset)) {
-            //cout << "Not a valid signal" << endl;
-            return;
-        }
-
         // Some debugs
         if (_cfg.writeSignal) {
             Mat debug(220,signal.size(),CV_8UC3,Scalar(255,255,255));
@@ -215,6 +211,11 @@ namespace markerDetector {
             dumpSignal(smoothedSignal, debug, Vec3b(0,255,0));
             dumpSignal(signal, debug, Vec3b(255,0,0));
             imwrite("debug/signal-"+std::to_string(cluster.center.x)+".jpg", debug);
+        }
+        
+        if (isnan(offset)) {
+            cout << "Not a valid signal" << endl;
+            return;
         }
 
         // Compute code
@@ -407,7 +408,7 @@ namespace markerDetector {
         float total = 0;
         float modulo = float(signalSize) / float(_cfg.numberOfDots);
         for (int i = 0; i < centersOfDots.size(); i++) {
-            total += fmod(centersOfDots[i],modulo);
+            total += fmod(centersOfDots[i] + (modulo / 2), modulo) - (modulo / 2);
         }
         return total/centersOfDots.size();
     }
@@ -421,6 +422,9 @@ namespace markerDetector {
                 if (abs(measure - centers[j]) < ((signalSize / _cfg.numberOfDots) / 2 * _cfg.markerxCorrThreshold)) {
                     code[i] = true;
                 }
+            }
+            if (abs(measure - centers[centers.size()-1] + signalSize) < ((signalSize / _cfg.numberOfDots) / 2 * _cfg.markerxCorrThreshold)) {
+                code[i] = true;
             }
        }
     }
